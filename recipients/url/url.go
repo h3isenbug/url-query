@@ -19,7 +19,7 @@ func NewRabbitMQReadRecipient(channel *amqp.Channel, queueName string) (ReadReci
 	var _, err = channel.QueueDeclare(
 		queueName,
 		true,
-		true,
+		false,
 		false,
 		false,
 		nil,

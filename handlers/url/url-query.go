@@ -1,9 +1,11 @@
 package url
 
 import (
+	"errors"
 	"github.com/google/uuid"
 	"github.com/h3isenbug/url-common/pkg/services/log"
 	"github.com/h3isenbug/url-query/handlers"
+	"github.com/h3isenbug/url-query/repositories"
 	"github.com/h3isenbug/url-query/services/url"
 	"net/http"
 )
@@ -22,7 +24,7 @@ func NewQueryHandlerV1(urlService url.Service, log log.LogService) QueryHandler 
 }
 
 func (handler QueryHandlerV1) GetLongURL(w http.ResponseWriter, r *http.Request) {
-	var shortPath =  handlers.GetURLParams(r)["shortPath"]
+	var shortPath = handlers.GetURLParams(r)["short_path"]
 	var userAgent = r.Header.Get("User-Agent")
 	var etag = r.Header.Get("If-None-Match")
 	if len(etag) == 0 {
@@ -31,14 +33,18 @@ func (handler QueryHandlerV1) GetLongURL(w http.ResponseWriter, r *http.Request)
 	}
 
 	longURL, err := handler.urlService.GetLongURL(shortPath, etag, userAgent)
+	if errors.Is(err, repositories.ErrNotFound) {
+		handlers.SendError(w, http.StatusNotFound)
+		return
+	}
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		handlers.SendError(w, http.StatusInternalServerError)
 		handler.log.Error("could not get longURL of %s: %s", shortPath, err.Error())
 		return
 	}
 
-	w.Header().Set("Location", longURL)
 	w.Header().Set("ETag", etag)
+	w.Header().Set("Location", longURL)
 	w.WriteHeader(http.StatusFound)
 	w.Write([]byte("redirecting..."))
 }
